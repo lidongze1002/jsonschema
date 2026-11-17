@@ -6,7 +6,7 @@ from unittest import TestCase
 
 from jsonschema import FormatChecker, ValidationError
 from jsonschema.exceptions import FormatError
-from jsonschema.validators import Draft4Validator
+from jsonschema.validators import Draft3Validator, Draft4Validator
 
 BOOM = ValueError("Boom!")
 BANG = ZeroDivisionError("Bang!")
@@ -89,3 +89,32 @@ class TestFormatChecker(TestCase):
             repr(checker),
             "<FormatChecker checkers=['bar', 'baz', 'foo']>",
         )
+
+
+class TestDraft3Time(TestCase):
+    """
+    Draft 3 describes ``time`` as ``hh:mm:ss``, so the textual representation
+    is checked as well as what ``strptime`` is willing to parse.
+    """
+
+    def setUp(self):
+        self.validator = Draft3Validator(
+            {"format": "time"},
+            format_checker=Draft3Validator.FORMAT_CHECKER,
+        )
+
+    def test_it_accepts_padded_times(self):
+        for instance in ["00:00:00", "12:30:45", "23:59:59"]:
+            with self.subTest(instance=instance):
+                self.assertTrue(self.validator.is_valid(instance))
+
+    def test_it_rejects_unpadded_components(self):
+        for instance in ["1:2:3", "7:30:00", "12:3:45"]:
+            with self.subTest(instance=instance):
+                self.assertFalse(self.validator.is_valid(instance))
+
+    def test_it_rejects_non_ascii_digits(self):
+        self.assertFalse(self.validator.is_valid("01:0\u0662:03"))
+
+    def test_it_ignores_non_strings(self):
+        self.assertTrue(self.validator.is_valid(12345))
